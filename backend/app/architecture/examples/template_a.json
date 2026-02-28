@@ -1,0 +1,10 @@
+{
+  "project_name": "crypto-stream-pipeline",
+  "template": "realtime_data_stack",
+  "services": [
+    { "name": "kafka", "type": "broker", "port": 9092 },
+    { "name": "spark", "type": "stream_processor", "port": 4040 },
+    { "name": "duckdb", "type": "analytics_db", "port": 5432 },
+    { "name": "streamlit", "type": "dashboard", "port": 8501 }
+  ]
+}

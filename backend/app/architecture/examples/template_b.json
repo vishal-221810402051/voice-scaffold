@@ -1,0 +1,9 @@
+{
+  "project_name": "user-api-service",
+  "template": "api_microservice_stack",
+  "services": [
+    { "name": "fastapi", "type": "api", "port": 8000 },
+    { "name": "postgres", "type": "database", "port": 5432 },
+    { "name": "redis", "type": "cache", "port": 6379 }
+  ]
+}
