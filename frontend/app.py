@@ -1,6 +1,7 @@
 ﻿import json
 import requests
 import streamlit as st
+from audiorecorder import audiorecorder
 from typing import Any, Dict, Optional
 
 st.set_page_config(page_title="Voice-Scaffold", layout="wide")
@@ -50,7 +51,7 @@ def extract_detail_payload(data: dict) -> dict:
 # Sidebar: Backend + Project
 # ----------------------------
 st.sidebar.title("⚙️ Control")
-backend_base = st.sidebar.text_input("Backend Base URL", value=st.session_state.get("backend_base", "http://127.0.0.1:8050"))
+backend_base = st.sidebar.text_input("Backend Base URL", value=st.session_state.get("backend_base", "http://127.0.0.1:8888"))
 st.session_state["backend_base"] = backend_base.rstrip("/")
 
 project_name = st.sidebar.text_input("Project Name", value=st.session_state.get("project_name", "crypto-stream-pipeline"))
@@ -98,14 +99,32 @@ tab_voice, tab_transcript, tab_update, tab_run, tab_debug = st.tabs(
 # ----------------------------
 with tab_voice:
     st.subheader("Voice → Transcript → AST")
-    st.write("Uploads audio to Speechmatics, then parses transcript to Infra AST (OpenAI + fallback).")
+    st.write("Record from microphone (recommended) or upload audio. Then compile to AST and generate docker-compose.yml.")
 
-    audio = st.file_uploader("Upload audio (wav/m4a/mp3)", type=["wav", "m4a", "mp3", "mp4", "aac"])
     lang = st.text_input("Language", value="en")
 
-    if st.button("🎧 Voice Compile", disabled=(audio is None)):
+    st.markdown("### 🎤 Microphone")
+    audio_bytes = audiorecorder("Start recording", "Stop recording")
+
+    recorded_file = None
+    if audio_bytes is not None and len(audio_bytes) > 0:
+        wav_bytes = audio_bytes.tobytes()
+        st.audio(wav_bytes, format="audio/wav")
+        recorded_file = ("mic.wav", wav_bytes, "audio/wav")
+
+    st.markdown("### 📁 Or Upload Audio")
+    audio = st.file_uploader("Upload audio (wav/m4a/mp3)", type=["wav", "m4a", "mp3", "mp4", "aac"])
+
+    compile_clicked = st.button("🎧 Voice Compile", disabled=(recorded_file is None and audio is None))
+
+    if compile_clicked:
         url = f"{st.session_state['backend_base']}/voice/compile"
-        files = {"audio": (audio.name, audio.getvalue(), audio.type)}
+
+        if recorded_file:
+            files = {"audio": recorded_file}
+        else:
+            files = {"audio": (audio.name, audio.getvalue(), audio.type)}
+
         resp = http_post(url, files=files, params={"language": lang}, timeout=180)
         data = show_response(resp)
         if data:
@@ -113,6 +132,7 @@ with tab_voice:
             st.session_state["last_ast"] = data.get("ast")
             st.session_state["last_validation"] = data.get("validation")
             st.success("Voice compile complete")
+
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("**Transcript**")
@@ -123,6 +143,51 @@ with tab_voice:
 
     st.markdown("**AST**")
     st.code(pretty(st.session_state.get("last_ast", {})))
+
+    st.divider()
+    st.subheader("🚀 One-click: Save + Generate + Download docker-compose.yml")
+
+    if st.button("⚡ Compile → Save Memory → Generate YAML", disabled=not st.session_state.get("last_ast")):
+        ast = st.session_state["last_ast"]
+        proj = st.session_state["project_name"]
+        base = st.session_state["backend_base"]
+
+        # 1) Save to memory
+        mem_url = f"{base}/memory/{proj}"
+        mem_resp = http_post(mem_url, json_body={"ast": ast}, timeout=60)
+        mem_data = show_response(mem_resp)
+        if not mem_data or not mem_data.get("ok"):
+            st.error("Failed to save memory")
+            st.stop()
+
+        # 2) Generate scaffold
+        gen_url = f"{base}/generate"
+        gen_resp = http_post(gen_url, json_body=ast, timeout=120)
+        gen_data = show_response(gen_resp)
+        if not gen_data or not gen_data.get("ok"):
+            st.error("Failed to generate project scaffold")
+            st.stop()
+
+        st.session_state["gen_result"] = gen_data
+        st.success("Generated scaffold")
+
+    # If generation result exists, read compose and offer download
+    gen_result = st.session_state.get("gen_result")
+    if gen_result and gen_result.get("project_dir"):
+        # Compose path is deterministic
+        compose_path = gen_result["project_dir"] + "\\docker-compose.yml"
+        try:
+            with open(compose_path, "r", encoding="utf-8") as f:
+                compose_text = f.read()
+            st.download_button(
+                label="⬇️ Download docker-compose.yml",
+                data=compose_text,
+                file_name="docker-compose.yml",
+                mime="text/yaml",
+            )
+            st.code(compose_text, language="yaml")
+        except Exception as e:
+            st.warning(f"Could not read compose file: {e}")
 
 # ----------------------------
 # TAB 2: Transcript Parse (transcript -> AST)
