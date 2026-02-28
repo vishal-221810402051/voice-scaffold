@@ -8,6 +8,7 @@ from app.api.routes_run import router as run_router
 from app.api.routes_diff import router as diff_router
 from app.api.routes_memory import router as memory_router
 from app.api.routes_parse import router as parse_router
+from app.api.routes_update import router as update_router
 
 app = FastAPI(title="Voice-Scaffold API")
 
@@ -17,6 +18,7 @@ app.include_router(run_router)
 app.include_router(diff_router)
 app.include_router(memory_router)
 app.include_router(parse_router)
+app.include_router(update_router)
 
 @app.exception_handler(RequestValidationError)
 async def request_validation_exception_handler(request, exc):
