@@ -1,0 +1,36 @@
+# {{ project_name }} (Template A)
+
+Real-time Data Stack scaffold:
+
+- Kafka (Confluent image)
+- Spark Structured Streaming (skeleton; execution in Phase 4)
+- DuckDB (embedded DB file under `data/`)
+- Streamlit dashboard
+
+## Ports
+- Kafka: {{ ports.kafka }}
+- Spark UI: {{ ports.spark_ui }}
+- Streamlit: {{ ports.streamlit }}
+
+## Quickstart (Phase 3)
+1) Start infrastructure + Streamlit:
+```powershell
+docker compose up -d
+```
+
+Open Streamlit:
+http://localhost:{{ ports.streamlit }}
+
+## What's included
+
+- `src/api_producer.py`: sample Kafka producer (local-run)
+- `src/streaming_app.py`: Spark Structured Streaming skeleton
+- `dashboard/app.py`: Streamlit dashboard skeleton
+
+## Next
+
+Phase 4 will add deterministic execution:
+
+- run producer
+- run spark streaming job inside container
+- verify Streamlit updates

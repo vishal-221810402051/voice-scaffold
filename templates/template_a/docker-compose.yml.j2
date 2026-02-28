@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "{{ ports.kafka }}:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  spark:
+    image: bitnami/spark:3.5
+    depends_on:
+      - kafka
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "{{ ports.spark_ui }}:8080"
+    volumes:
+      - ./src:/opt/spark-app
+    command: >
+      /bin/bash -lc "
+      echo 'Spark container ready. Use Phase 4 to run streaming job.';
+      sleep infinity
+      "
+
+  streamlit:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./dashboard:/app/dashboard
+      - ./src:/app/src
+      - ./requirements.txt:/app/requirements.txt
+      - ./data:/app/data
+    ports:
+      - "{{ ports.streamlit }}:8501"
+    command: >
+      /bin/bash -lc "
+      pip install --no-cache-dir -r /app/requirements.txt &&
+      streamlit run /app/dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+      "

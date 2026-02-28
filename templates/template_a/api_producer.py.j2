@@ -1,0 +1,24 @@
+import json
+import time
+from kafka import KafkaProducer
+
+TOPIC = "raw_events"
+BOOTSTRAP = "localhost:{{ ports.kafka }}"
+
+def main():
+    producer = KafkaProducer(
+        bootstrap_servers=BOOTSTRAP,
+        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+    )
+
+    i = 0
+    while True:
+        event = {"ts": int(time.time()), "symbol": "BTCUSDT", "price": 50000 + (i % 100)}
+        producer.send(TOPIC, event)
+        producer.flush()
+        print("sent:", event)
+        i += 1
+        time.sleep(1)
+
+if __name__ == "__main__":
+    main()

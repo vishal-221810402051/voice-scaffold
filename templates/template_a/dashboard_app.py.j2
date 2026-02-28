@@ -1,0 +1,22 @@
+﻿import streamlit as st
+import duckdb
+from pathlib import Path
+
+st.set_page_config(page_title="{{ project_name }}", layout="wide")
+
+st.title("📈 {{ project_name }}")
+st.caption("Template A scaffold (Phase 3). Streaming integration arrives in Phase 4.")
+
+db_path = Path("data") / "metrics.duckdb"
+st.write("DuckDB file:", str(db_path))
+
+if db_path.exists():
+    con = duckdb.connect(str(db_path))
+    try:
+        tables = con.execute("SHOW TABLES").fetchall()
+        st.write("Tables:", tables)
+    finally:
+        con.close()
+else:
+    st.info("No DuckDB file yet. Phase 4 will write metrics here.")
+
