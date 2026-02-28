@@ -25,6 +25,25 @@ def fallback_parse(transcript: str) -> Dict[str, Any]:
         ]
         project_name = "realtime-stack"
 
+    # Service-specific port override patterns, e.g. "change kafka port to 19092"
+    for svc in services:
+        name = re.escape(svc["name"])
+        patterns = [
+            rf"{name}\s+port\s*(?:to|=|:)?\s*([\d,]{{2,8}})",
+            rf"{name}.*?port\s*(?:to|=|:)?\s*([\d,]{{2,8}})",
+            rf"port\s*(?:to|=|:)?\s*([\d,]{{2,8}})\s*(?:for\s+)?{name}",
+        ]
+        for pat in patterns:
+            m_port = re.search(pat, t)
+            if m_port:
+                try:
+                    port = int(m_port.group(1).replace(",", ""))
+                    if 1024 <= port <= 65535:
+                        svc["port"] = port
+                except Exception:
+                    pass
+                break
+
     # crude project name extraction
     m = re.search(r"project(?: name)?\s*[:=]\s*([a-z0-9\-_\s]+)", t)
     if m:
