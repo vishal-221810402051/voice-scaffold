@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from app.parser.openai_extractor import extract_infra_ast_from_transcript
 from app.parser.fallback_parser import fallback_parse
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 class ParseRequest(BaseModel):
@@ -46,10 +48,28 @@ def parse_transcript(req: ParseRequest):
 
 @router.post("/voice/compile")
 def voice_compile(audio: UploadFile = File(...), language: str = "en"):
+    payload = audio.file.read()
+    payload_size = len(payload)
+    header = payload[:12] if payload else b""
+    has_riff_wave = len(header) >= 12 and header[:4] == b"RIFF" and header[8:12] == b"WAVE"
+
+    logger.info(
+        "voice_compile upload filename=%s content_type=%s language=%s size_bytes=%d has_riff_wave=%s header_hex=%s",
+        audio.filename,
+        audio.content_type,
+        language,
+        payload_size,
+        has_riff_wave,
+        header.hex(),
+    )
+
+    if payload_size == 0:
+        raise HTTPException(status_code=400, detail={"error": "EMPTY_AUDIO", "message": "Uploaded audio payload is empty."})
+
     # Save upload to temp file
     suffix = Path(audio.filename).suffix if audio.filename else ".wav"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(audio.file.read())
+        tmp.write(payload)
         tmp_path = Path(tmp.name)
 
     try:
